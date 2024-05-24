@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 train.py --network-name='unet1' --leave-one-center-out='I' --epochs=300 --input-patch-size=64 --inference-patch-size=128 --train-bs=32 --num_workers=4 --lr=2e-4 --wd=1e-5 --val-interval=2 --sw-bs=4 --cache-rate=1
