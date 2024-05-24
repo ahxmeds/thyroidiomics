@@ -26,7 +26,7 @@ The objective of this study was to develop an automated pipeline that enhances t
 
 ### Classification
 <p align="center">
-<img src="./assets/classification.png" alt="Figure" height="400" />
+<img src="./assets/classification.png" alt="Figure" height="500" />
 </p>
 <p align="center", style="font-size:10px">
     Various class-wise and averaged metrics for classification were used to evaluate model performance in two scenarios: features extracted from the physician's delineated ROIs and those from ResUNet predicted ROIs. The boxplots show the distribution of metrics over the nine centers as test sets for the three thyroid pathology classes, MNG, TH and DG. The black horizontal lines denote the median and white circle denote the mean of distribution.
