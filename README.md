@@ -48,7 +48,7 @@ Follow the intructions given below to set up the necessary conda environment, in
     ```
     conda activate igcondapet
     ``'-->
-- **Preprocess AutoPET and HECKTOR datasets:** 
+- **Preprocess datasets:** 
 
 <!--Go to [config.py](config.py) and set path to data folders for AutoPET and HECKTOR datasets and the path where you want the preprocessed data to be stored. 
     ```
