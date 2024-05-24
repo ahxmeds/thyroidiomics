@@ -1,6 +1,6 @@
 import os 
 
-THYROID_SEGMENTATION_FOLDER = '' # path to the directory containing `data` and `results` (this will be created by the pipeline) folders.
+THYROID_SEGMENTATION_FOLDER = '/data/blobfuse/default/thyroid-segmentation-results' # path to the directory containing `data` and `results` (this will be created by the pipeline) folders.
 
 DATA_FOLDER = os.path.join(THYROID_SEGMENTATION_FOLDER, 'data', 'nifti')
 RESULTS_FOLDER = os.path.join(THYROID_SEGMENTATION_FOLDER, 'results')
