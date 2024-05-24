@@ -1,0 +1,6 @@
+__pycache__/*
+classification/__pycache__/*
+classification/__pycache__/*
+data_analysis/__pycache__/*
+data_analysis/preprocessing/__pycache__/*
+segmentation/__pycache__/*
