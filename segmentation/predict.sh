@@ -1,1 +1,1 @@
-python predict.py --network-name='unet1' --leave-one-center-out='I' --inference-patch-size=128 --num_workers=2  --sw-bs=2 
+python predict.py --network-name='unet1' --leave-one-center-out='A' --inference-patch-size=128 --num_workers=2  --sw-bs=2 

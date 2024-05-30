@@ -17,7 +17,6 @@ import torch.distributed as dist
 import os
 from initialize_train import (
     get_train_valid_test_splits,
-    get_train_valid_test_splits_onlyonecenter,
     get_train_transforms, 
     get_valid_transforms, 
     get_model, 
@@ -31,7 +30,7 @@ from initialize_train import (
 import sys
 config_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(config_dir)
-from config import RESULTS_FOLDER
+from config import SEGMENTATION_RESULTS_FOLDER
 torch.backends.cudnn.benchmark = True
 #%%
 def ddp_setup():
@@ -42,8 +41,7 @@ def pad_zeros_at_front(num, N):
 
 #%%
 def load_train_objects(args):
-    train_data, valid_data, test_data = get_train_valid_test_splits(args.leave_one_center_out)
-    # train_data, valid_data, _ =  get_train_valid_test_splits_onlyonecenter('E')
+    train_data, valid_data, _ = get_train_valid_test_splits(args.leave_one_center_out)
     train_transforms = get_train_transforms(args.input_patch_size)
     valid_transforms = get_valid_transforms()
     model = get_model(args.network_name) 
@@ -208,17 +206,17 @@ def main(args):
     os.environ['OMP_NUM_THREADS'] = '6'
     network = args.network_name
 
-    experiment_code = f"{network}_loco{args.leave_one_center_out}_trn64_val128_WDL"
+    experiment_code = f"{network}_loco{args.leave_one_center_out}"
     # experiment_code = f"{network}_onlyE_trn64_val128_WDL"
 
     #save models folder
-    save_models_dir = os.path.join(RESULTS_FOLDER,'models')
+    save_models_dir = os.path.join(SEGMENTATION_RESULTS_FOLDER,'models')
     os.makedirs(save_models_dir, exist_ok=True)
     save_models_dir = os.path.join(save_models_dir, experiment_code)
     os.makedirs(save_models_dir, exist_ok=True)
     
     # save train and valid logs folder
-    save_logs_dir = os.path.join(RESULTS_FOLDER,'logs')
+    save_logs_dir = os.path.join(SEGMENTATION_RESULTS_FOLDER,'logs')
     os.makedirs(save_logs_dir, exist_ok=True)
     save_logs_dir = os.path.join(save_logs_dir, experiment_code)
     os.makedirs(save_logs_dir, exist_ok=True)
