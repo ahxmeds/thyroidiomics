@@ -1,4 +1,3 @@
-# %%
 # Importing the required libraries
 import os
 import pandas as pd
@@ -14,7 +13,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import GridSearchCV
 from xgboost import XGBClassifier
 
-# %%
+
 class RadiomicsFeatureExtractor:
     def __init__(self, params):
         """
@@ -38,10 +37,6 @@ class RadiomicsFeatureExtractor:
         sorted_images = self.get_sorted_nii_files(path_images)
         sorted_segmentations = self.get_sorted_nii_files(path_labels)
 
-        # # Take only the first 10 samples as TEST
-        # sorted_images = sorted_images[:10]
-        # sorted_segmentations = sorted_segmentations[:10]
-
         sample_names = []
         feature_data = []
 
@@ -52,7 +47,7 @@ class RadiomicsFeatureExtractor:
                 image = sitk.ReadImage(image_path)
                 features = self.extractor.execute(image, label_image)
 
-                sample_name = os.path.basename(image_path).split('.')[0]
+                sample_name = os.path.basename(image_path)
                 sample_names.append(sample_name)
                 feature_data.append(features)
             except Exception as e:
@@ -60,14 +55,12 @@ class RadiomicsFeatureExtractor:
 
         # Create and save the DataFrame
         if feature_data:
-            df = pd.DataFrame(feature_data)
-            df.insert(0, 'PatientID', sample_names)
-            # Ensure the output directory exists
-            os.makedirs(os.path.dirname(output_excel_file), exist_ok=True)
-            df.to_excel(output_excel_file, index=False)
+            df = pd.DataFrame(feature_data, index=sample_names)
+            df.to_excel(output_excel_file)
             print("Radiomics features saved to", output_excel_file)
         else:
             print("No features extracted, output file not created.")
+
 
 class DataProcessor:
     def __init__(self, threshold=0.90):
@@ -100,6 +93,7 @@ class DataProcessor:
         
         filtered_datasets = self.remove_highly_correlated_features(*scaled_datasets)
         return filtered_datasets
+
 
 class FeatureSelector:
     def __init__(self, method='rfe', estimator=None, n_features=10, direction='forward'):
@@ -149,6 +143,7 @@ class FeatureSelector:
         
         return self.feature_scores_
     
+
 class MultiModelClassifier:
     def __init__(self):
         self.models = {'XGB': XGBClassifier(random_state=42)}
@@ -310,36 +305,13 @@ class MultiModelClassifier:
 
         return accuracy_score_test, classification_report_test, conf_matrix_test
 
-def group_data_by_centers(excel_file_path, csv_file_path, name='data_'):
-    # Load the datasets
+
+def group_data_by_centers(excel_file_path, name='data_'):
+    # Load the dataset
     df = pd.read_excel(excel_file_path)
-    classes = pd.read_csv(csv_file_path)
 
-    # Get the names of the first columns in both DataFrames
-    first_col_excel = df.columns[0]
-    first_col_csv = classes.columns[0]
-
-    # Initialize an empty list to store the class values
-    class_values = []
-
-    # Iterate over each row in the Excel DataFrame
-    for index, row in df.iterrows():
-        # Get the value from the first column
-        patient_id = row[first_col_excel]
-        
-        # Check if this patient_id exists in the CSV DataFrame
-        if patient_id in classes[first_col_csv].values:
-            # Get the corresponding class value
-            class_value = classes[classes[first_col_csv] == patient_id]['Class'].values[0]
-        else:
-            # If not found, set class_value to None or some default value
-            class_value = None
-        
-        # Append the class value to the list
-        class_values.append(class_value)
-
-    # Insert the class values as a new column in the Excel DataFrame
-    df.insert(loc=1, column='Class', value=class_values)
+    # Extract the patientID column
+    patientID = df.iloc[:, 0]  # Assuming patientID is in the first column
 
     # Initialize an empty dictionary to store the variables
     grouped_data = {}
@@ -364,91 +336,88 @@ def group_data_by_centers(excel_file_path, csv_file_path, name='data_'):
     # Optional: return the dictionary of DataFrames for further use
     return grouped_data
 
-def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, results_path):
+
+def one_center_out_cross_validation(data_dict, data_dict_Predicted):
     selected_features_scores = {}  # Dictionary to save selected features with their scores
+    
+    for center_key in data_dict:
+        test_set = data_dict[f"{center_key}"]
+        test_set_predicted = data_dict_Predicted[f"{center_key}"]
+        train_sets = [data_dict[key] for key in data_dict if key != center_key]
+        train_set = pd.concat(train_sets, ignore_index=True)
+        X_train = train_set.iloc[:, 95:95+93]  # Adjust according to your feature range
+        y_train = train_set.iloc[:, 1:2]
+        X_test = test_set.iloc[:, 95:95+93]
+        y_test = test_set.iloc[:, 1:2]
+        X_test_predicted = test_set_predicted.iloc[:, 95:95+93]
+        y_test_predicted = test_set_predicted.iloc[:, 1:2]
 
-    test_set = data_dict[center_key]
-    test_set_predicted = data_dict_Predicted[center_key]
-    train_sets = [data_dict[key] for key in data_dict if key != center_key]
-    train_set = pd.concat(train_sets, ignore_index=True)
+        print(f"Center: {center_key}")
+        print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+        print(f"X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+        print(f"X_test_predicted shape: {X_test_predicted.shape}, y_test_predicted shape: {y_test_predicted.shape}")
 
-    # Assuming the column name you want to start with is stored in a variable
-    start_column_name = 'original_firstorder_10Percentile'
-    # Find the index of the starting column
-    start_index = train_set.columns.get_loc(start_column_name)
-    X_train = train_set.iloc[:, start_index:]  
-    y_train = train_set.iloc[:, 1:2]
-    X_test = test_set.iloc[:, start_index:]
-    y_test = test_set.iloc[:, 1:2]
-    X_test_predicted = test_set_predicted.iloc[:, start_index:]
-    y_test_predicted = test_set_predicted.iloc[:, 1:2]
+        # Ensure the target variable is categorical
+        y_train_modified = y_train.astype('category')
+        y_test_modified = y_test.astype('category')
+        y_test_predicted_modified = y_test_predicted.astype('category')
 
-    print(f"Center: {center_key}")
-    print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
-    print(f"X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
-    print(f"X_test_predicted shape: {X_test_predicted.shape}, y_test_predicted shape: {y_test_predicted.shape}")
+        processor = DataProcessor(threshold=0.95)
+        scaled_and_filtered_data = processor.process_data(X_train, X_test, X_test_predicted)
+        X_train_processed, X_test_processed, X_test_predicted_processed = scaled_and_filtered_data
 
-    # Ensure the target variable is categorical
-    y_train_modified = y_train.astype('category')
-    y_test_modified = y_test.astype('category')
-    y_test_predicted_modified = y_test_predicted.astype('category')
+        fs_rfe = FeatureSelector(method='rfe', estimator=XGBClassifier(), n_features=10)
+        fs_rfe.fit(X_train_processed, y_train_modified)
+        X_train_rfe = fs_rfe.transform(X_train_processed)
+        X_test_rfe = fs_rfe.transform(X_test_processed)
+        X_test_predicted_rfe = fs_rfe.transform(X_test_predicted_processed)
 
-    processor = DataProcessor(threshold=0.95)
-    scaled_and_filtered_data = processor.process_data(X_train, X_test, X_test_predicted)
-    X_train_processed, X_test_processed, X_test_predicted_processed = scaled_and_filtered_data
+        selected_features_rfe = fs_rfe.get_selected_features(X_train_processed.columns)
+        feature_scores_rfe = fs_rfe.get_feature_scores()
 
-    fs_rfe = FeatureSelector(method='rfe', estimator=XGBClassifier(), n_features=10)
-    fs_rfe.fit(X_train_processed, y_train_modified)
-    X_train_rfe = fs_rfe.transform(X_train_processed)
-    X_test_rfe = fs_rfe.transform(X_test_processed)
-    X_test_predicted_rfe = fs_rfe.transform(X_test_predicted_processed)
+        # Save selected features and their scores in the dictionary
+        selected_features_scores[center_key] = dict(zip(selected_features_rfe, feature_scores_rfe))
 
-    selected_features_rfe = fs_rfe.get_selected_features(X_train_processed.columns)
-    feature_scores_rfe = fs_rfe.get_feature_scores()
+        directory_path = f'/home/jhubadmin/Desktop/Thyroid_ML_Classification/Results/0.3/01_Real/{center_key}/'
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
 
-    # Save selected features and their scores in the dictionary
-    selected_features_scores[center_key] = dict(zip(selected_features_rfe, feature_scores_rfe))
+        mmc = MultiModelClassifier()
+        best_models = {}
+        for model_name in ['XGB']:
+            best_models[model_name] = mmc.train_model(model_name, X_train_rfe, y_train_modified)
 
-    directory_path = f'{results_path}/01_Real/{center_key}/'
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
+        with open(os.path.join(directory_path, 'classification_reports.txt'), 'w') as file:
+            for model_name, model in best_models.items():
+                print(f"Evaluating model: {model_name}")
+                accuracy, class_report, conf_matrix = mmc.evaluate_model(model, X_test_rfe, y_test_modified, plot_path=directory_path)
+                file.write(f"Model: {model_name}\n")
+                file.write(f"Accuracy (without bootstrapping) on X_test: {accuracy:.2f}\n")
+                file.write("Classification Report (without bootstrapping) on X_test:\n")
+                file.write(class_report + "\n")
+                file.write("Confusion Matrix (without bootstrapping) on X_test:\n")
+                for row in conf_matrix:
+                    file.write(' '.join(str(x) for x in row) + "\n")
+                file.write("-" * 80 + "\n")
+        print("All model evaluations have been saved to 'classification_reports.txt'.")
 
-    mmc = MultiModelClassifier()
-    best_models = {}
-    for model_name in ['XGB']:
-        best_models[model_name] = mmc.train_model(model_name, X_train_rfe, y_train_modified)
+        directory_path1 = f'/home/jhubadmin/Desktop/Thyroid_ML_Classification/Results//0.3/02_Predicted/{center_key}/'
+        if not os.path.exists(directory_path1):
+            os.makedirs(directory_path1)
 
-    with open(os.path.join(directory_path, 'classification_reports.txt'), 'w') as file:
-        for model_name, model in best_models.items():
-            print(f"Evaluating model: {model_name}")
-            accuracy, class_report, conf_matrix = mmc.evaluate_model(model, X_test_rfe, y_test_modified, plot_path=directory_path)
-            file.write(f"Model: {model_name}\n")
-            file.write(f"Accuracy (without bootstrapping) on X_test: {accuracy:.2f}\n")
-            file.write("Classification Report (without bootstrapping) on X_test:\n")
-            file.write(class_report + "\n")
-            file.write("Confusion Matrix (without bootstrapping) on X_test:\n")
-            for row in conf_matrix:
-                file.write(' '.join(str(x) for x in row) + "\n")
-            file.write("-" * 80 + "\n")
-    print("All model evaluations have been saved to 'classification_reports.txt'.")
-
-    directory_path1 = f'{results_path}/02_Predicted/{center_key}/'
-    if not os.path.exists(directory_path1):
-        os.makedirs(directory_path1)
-
-    with open(os.path.join(directory_path1, 'classification_reports.txt'), 'w') as file:
-        for model_name, model in best_models.items():
-            print(f"Evaluating model: {model_name}")
-            accuracy, class_report, conf_matrix = mmc.evaluate_model(model, X_test_predicted_rfe, y_test_predicted_modified, plot_path=directory_path1)
-            file.write(f"Model: {model_name}\n")
-            file.write(f"Accuracy (without bootstrapping) on X_test_predicted: {accuracy:.2f}\n")
-            file.write("Classification Report (without bootstrapping) on X_test_predicted:\n")
-            file.write(class_report + "\n")
-            file.write("Confusion Matrix (without bootstrapping) on X_test_predicted:\n")
-            for row in conf_matrix:
-                file.write(' '.join(str(x) for x in row) + "\n")
-            file.write("-" * 80 + "\n")
-    print("All model evaluations have been saved to 'classification_reports.txt'.")
+        with open(os.path.join(directory_path1, 'classification_reports.txt'), 'w') as file:
+            for model_name, model in best_models.items():
+                print(f"Evaluating model: {model_name}")
+                accuracy, class_report, conf_matrix = mmc.evaluate_model(model, X_test_predicted_rfe, y_test_predicted_modified, plot_path=directory_path1)
+                file.write(f"Model: {model_name}\n")
+                file.write(f"Accuracy (without bootstrapping) on X_test_predicted: {accuracy:.2f}\n")
+                file.write("Classification Report (without bootstrapping) on X_test_predicted:\n")
+                file.write(class_report + "\n")
+                file.write("Confusion Matrix (without bootstrapping) on X_test_predicted:\n")
+                for row in conf_matrix:
+                    file.write(' '.join(str(x) for x in row) + "\n")
+                file.write("-" * 80 + "\n")
+        print("All model evaluations have been saved to 'classification_reports.txt'.")
     
     # Save the selected features and their scores to an Excel file
     excel_data = []
@@ -457,20 +426,20 @@ def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, 
             excel_data.append([center_key, feature, score])
     
     df_selected_features_scores = pd.DataFrame(excel_data, columns=['Center', 'Feature', 'Score'])
-    features_scores_path = f'{results_path}/selected_features_scores.xlsx'
+    features_scores_path = '/home/jhubadmin/Desktop/Thyroid_ML_Classification/Results//0.3/01_Real/selected_features_scores.xlsx'
     df_selected_features_scores.to_excel(features_scores_path, index=False)
     
     print("Selected features and their scores have been saved to 'selected_features_scores.xlsx'.")
     return
 
-#%%
-# Usage of the pipeline 
+
+# Usage of the pipeline
+
 # How to use the function extract_radiomics_features
-output_csv_file = "/home/jhubadmin/Desktop/PipelineTest/results/radiomics/TEST.xlsx"
-output_csv_file_predicted = "/home/jhubadmin/Desktop/PipelineTest/results/radiomics/TEST_UNet.xlsx"   
-path_labels_predicted = "/home/jhubadmin/Desktop/PipelineTest/predictedLabels"
-path_labels = "/home/jhubadmin/Desktop/PipelineTest/labels"
-path_images = "/home/jhubadmin/Desktop/PipelineTest/images"
+
+output_excel_file = "/home/jhubadmin/Desktop/Thyroid_ML_Classification/Radiomics_Data/Radiomics_Thyroid_UNet_0.1.xlsx"
+path_labels = "/home/jhubadmin/Desktop/Thyroid_ML_Classification/nifti/PredictedLabels"
+path_images = "/home/jhubadmin/Desktop/Thyroid_ML_Classification/nifti/images-normal-excluded"
 
 # Define the feature extractor parameters
 params = {
@@ -486,18 +455,14 @@ params = {
 feature_extractor = RadiomicsFeatureExtractor(params)
 
 # Execute feature extraction
-feature_extractor.extract_features(path_images, path_labels, output_csv_file)
-feature_extractor.extract_features(path_images, path_labels_predicted, output_csv_file_predicted)
+feature_extractor.extract_features(path_images, path_labels, output_excel_file)
 
-# %%
-csv_file_path = "/home/jhubadmin/Desktop/thyroidiomics/segmentation/datainfo_images_to_use.csv"
-# Usage of the pipeline
-data_dict = group_data_by_centers(output_csv_file, csv_file_path, 'data_') # print(grouped_data['A'])  # Example: print the DataFrame for starting letter 'A'
-data_dict_Predicted = group_data_by_centers(output_csv_file_predicted, csv_file_path, "Predicted_") 
+# How to use the function group_data_by_centers
+# Example usage
+excel_file_path = '/home/jhubadmin/Desktop/Thyroid_ML_Classification/Radiomics_Data/Radiomics_Thyroid_Ready.xlsx'
+excel_file_path_predicted = '/home/jhubadmin/Desktop/Thyroid_ML_Classification/Radiomics_Data/Radiomics_Thyroid_UNet.xlsx'
 
-# %%
-results_path = "/home/jhubadmin/Desktop/PipelineTest/results"
-one_center_out_cross_validation("A", data_dict, data_dict_Predicted, results_path)
+data_dict = group_data_by_centers(excel_file_path) # print(grouped_data['A'])  # Example: print the DataFrame for starting letter 'A'
+data_dict_Predicted = group_data_by_centers(excel_file_path_predicted, "Predicted_") 
 
-
-# %%
+one_center_out_cross_validation(data_dict, data_dict_Predicted)
