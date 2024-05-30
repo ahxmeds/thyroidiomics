@@ -51,9 +51,8 @@ def remove_all_extensions(filename):
         filename = name
 
 def get_train_valid_test_splits_onlyonecenter(center='A'):
-    datapath = '/home/jhubadmin/Projects/thyroid-segmentation/segmentation/datainfo_images_to_use.csv'
+    datapath = os.path.join(WORKING_FOLDER, 'data_analysis', 'datainfo.csv')
     data = pd.read_csv(datapath)
-    data = data[data['Class'] != 0] # remove normal class 
     ids = data[data['CenterID'] == center]['PatientID'].tolist()
     stpaths = [os.path.join(DATA_FOLDER, 'images', f'{id}.nii.gz') for id in ids]
     gtpaths = [os.path.join(DATA_FOLDER, 'labels', f'{id}.nii.gz') for id in ids]
@@ -63,9 +62,8 @@ def get_train_valid_test_splits_onlyonecenter(center='A'):
     return train_data, valid_data, test_data
     
 def get_train_valid_test_splits(leave_one_center_out='A'):
-    datapath = '/home/jhubadmin/Projects/thyroid-segmentation/segmentation/datainfo_images_to_use.csv'
+    datapath = os.path.join(WORKING_FOLDER, 'data_analysis', 'datainfo.csv')
     data = pd.read_csv(datapath)
-    data = data[data['Class'] != 0] # remove normal class 
     trainvalid_ids = data[data['CenterID'] != leave_one_center_out]['PatientID'].tolist()
     test_ids = data[data['CenterID'] == leave_one_center_out]['PatientID'].tolist()
 
