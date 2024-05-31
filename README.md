@@ -88,7 +88,7 @@ Follow the intructions given below to set up the necessary conda environment, in
     ...
     ...
     ```
-    Place the `datainfo.csv` file in this location: `thyroidiomics/data_analysis/datainfo.csv`
+    Place the `datainfo.csv` file in this location: `thyroidiomics/data_analysis/datainfo.csv`.
     
 - **Run segmentation training.** The file [./segmentation/train.py](./segmentation/train.py) runs training on the 2D dataset via PyTorch's `DistributedDataParallel`. To run training, do the following (an example bash script is given in [./segmentation/train.sh](./segmentation/train.sh)). 
     ```
