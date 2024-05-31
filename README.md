@@ -8,8 +8,10 @@ This codebase is related to our submission to EUVIP 2024:<br>
 <p align="center">
 <img src="./assets/flowchart.png" alt="Figure" height="285" />
 </p>
-<p align="center", style="font-size:8px">
+<p align="justify">
+<sub>
     Figure 1: <i>Thyroidiomics</i>: the proposed two-step pipeline to classify thyroid pathologies into three classes, namely, MNG, TH and DG. Scenario 1 represents the pipeline dependent on physician's delineated ROIs as input to the classifier, while scenario 2 represents the fully automated pipeline operating on segmentation predicted by ResUNet.
+</sub>
 </p>
 
 <p align="justify">
@@ -21,9 +23,7 @@ The objective of this study was to develop an automated pipeline that enhances t
 <img src="./assets/segmentation.png" alt="Figure" width="45%" />
 <img src="./assets/classification_classwise.png" alt="Figure"  width="50%" />
 </p>
-<!-- <p align="center", style="font-size:5px;">
-    Figure 2: (Left) (a) Distribution of center-level mean DSC over 9 centers for the classes, MNG, TH and DG. (b)-(d), (e)-(g), and (h)-(j) show some representative images from each class with the ground truth (red) and ResUNet predicted (yellow) segmentation of thyroid. The DSC between ground truth and predicted masks is shown in the bottom-right of each figure. (Right) Various class-wise and averaged metrics for classification were used to evaluate model performance in two scenarios: features extracted from the physician's delineated ROIs and those from ResUNet predicted ROIs. The boxplots show the distribution of metrics over the nine centers as test sets for the three thyroid pathology classes, MNG, TH and DG. The black horizontal lines denote the median and white circle denote the mean of distribution.
-</p> -->
+<p align="justify">
 <sub>
     Figure 2: (Left) (a) Distribution of center-level mean DSC over 9 centers for the classes, MNG, TH and DG. (b)-(d), (e)-(g), and (h)-(j) show some representative images from each class with the ground truth (red) and ResUNet predicted (yellow) segmentation of thyroid. The DSC between ground truth and predicted masks is shown in the bottom-right of each figure. (Right) Various class-wise metrics for classification were used to evaluate model performance in two scenarios: features extracted from the physician's delineated ROIs and those from ResUNet predicted ROIs. The boxplots show the distribution of metrics over the nine centers as test sets for the three thyroid pathology classes, MNG, TH and DG.
 </sub>
