@@ -418,26 +418,22 @@ def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, 
 
 #%%
 def main(args):
-    # Usage of the pipeline 
-    # How to use the function extract_radiomics_features
-
     experiment_code = f'{args.network_name}_loco{args.leave_one_center_out}'
     feature_extraction_dir = os.path.join(CLASSIFICATION_RESULTS_FOLDER, 'feature_extraction')
     os.makedirs(feature_extraction_dir, exist_ok=True) 
     physiciansegs_feature_extraction_fpath = os.path.join(feature_extraction_dir, 'physician_segmentation_radiomics.xlsx')
 
-
     predictedsegs_feature_extraction_dir = os.path.join(CLASSIFICATION_RESULTS_FOLDER, 'feature_extraction', experiment_code)
     os.makedirs(predictedsegs_feature_extraction_dir, exist_ok=True)
     predictedsegs_feature_extraction_fpath = os.path.join(predictedsegs_feature_extraction_dir, 'predicted_segmentation_radiomics.xlsx')
-    
+
     datapath = os.path.join(WORKING_FOLDER, 'data_analysis', 'datainfo.csv')
     data = pd.read_csv(datapath)
     trainvalid_df = data[data['CenterID'] != args.leave_one_center_out]
     test_df = data[data['CenterID'] == args.leave_one_center_out]
     trainvalid_df.reset_index(inplace=True, drop=True)
     test_df.reset_index(inplace=True, drop=True)
-    
+
     trainvalid_ids, test_ids = trainvalid_df['PatientID'].tolist(), test_df['PatientID'].tolist()
     trainvalid_classes, test_classes = trainvalid_df['Class'].tolist(), test_df['Class'].tolist()
     trainvalid_centers, test_centers = trainvalid_df['CenterID'].tolist(), test_df['CenterID'].tolist()
