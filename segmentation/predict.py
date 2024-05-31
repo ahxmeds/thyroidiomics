@@ -57,7 +57,7 @@ def main(args):
    
     validlog_fname = os.path.join(save_logs_dir, 'validlog_gpu0.csv')
     validlog = pd.read_csv(validlog_fname)
-    best_epoch = 2*(np.argmax(validlog['Metric']) + 1)
+    best_epoch = args.val_interval*(np.argmax(validlog['Metric']) + 1)
     best_metric = np.max(validlog['Metric'])
     print(f"Using the {network} model at epoch={best_epoch} with mean valid DSC = {round(best_metric, 4)}")
 
@@ -147,7 +147,9 @@ if __name__ == "__main__":
     parser.add_argument('--num_workers', type=int, default=2, metavar='nw',
                         help='num_workers for train and validation dataloaders (default: 2)')
     parser.add_argument('--sw-bs', type=int, default=2, metavar='sw-bs',
-                        help='batchsize for sliding window inference (default=2)')
+                        help='batchsize for sliding window inference (default=4)')
+    parser.add_argument('--val-interval', type=int, default=2, metavar='val-interval',
+                        help='epochs interval for which validation will be performed (default=2)')
     args = parser.parse_args()
     
     main(args)

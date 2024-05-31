@@ -37,7 +37,7 @@ The objective of this study was to develop an automated pipeline that enhances t
 ## How to get started?
 Follow the intructions given below to set up the necessary conda environment, install packages, preprocess dataset in the correct format so it can be accepted as inputs by the code, train model and perform anomaly detection on test set using the trained models. 
 
-- **Clone the repository, create conda environment and install necessary packages.** The first step is to clone this GitHub codebase in your local machine, create a conda environment, and install all the necessary packages. This code base was developed primarily using python=3.9.19, PyTorch=1.11.0, monai=1.3.1 and CUDA 11.4 on a Microsoft Azure virtual machine with Ubuntu 20.04, so the codebase has been tested only with these configurations. We hope that it will run in other suitable combinations of different versions of python, PyTorch, monai, and CUDA, but we cannot guarantee that. Proceed with caution!
+- **Clone the repository, create conda environment and install necessary packages.** The first step is to clone this GitHub codebase in your local machine, create a conda environment, and install all the necessary packages. This code base was developed primarily using python=3.9.19, PyTorch=1.11.0, monai=1.3.1 and CUDA 11.4 on a Microsoft Azure virtual machine with Ubuntu 20.04, so the codebase has been tested only with these configurations. The virtual machine had one GPU with 16 GiB of RAM and 6 vCPUs with 112 GB of RAM. We hope this codebase will run in other suitable combinations of different versions of python, PyTorch, monai, and CUDA, but we cannot guarantee that. Proceed with caution and feel free to modify wherever necessary!
 
     ```
     git clone 'https://github.com/igcondapet/thyroidiomics.git'
@@ -72,28 +72,31 @@ Follow the intructions given below to set up the necessary conda environment, in
     Next, create a file named `datainfo.csv` containing information about `PatientID` (corresponding to image filenames), `CenterID` and `Class` as shown below. For this work, we had 3 classes corresponding to 3 thyroid pathologies: MNG (label=0), TH (label=1) and DG (label=2). 
     ```
     PatientID,CenterID,Class
-    Patient0001,CenterA,0
-    Patient0002,CenterB,1
+    Patient0001,A,0
+    Patient0002,B,1
+    Patient0003,D,2
+    Patient0004,C,2
+    Patient0005,I,1
     ...
     ...
     ...
     ```
     Place the `datainfo.csv` file in this location: `thyroidiomics/data_analysis/datainfo.csv`
     
-- **Run segmentation training.** The file [igcondapet/trainddp.py](igcondapet/trainddp.py) runs training on the 2D dataset via PyTorch's `DistributedDataParallel`. To run training, do the following (an example bash script is given in [igcondapet/trainddp.sh](igcondapet/trainddp.sh)):
+- **Run segmentation training.** The file [thyroidiomics/train.py](thyroidiomics/trainddp.py) runs training on the 2D dataset via PyTorch's `DistributedDataParallel`. To run training, do the following (an example bash script is given in [thyroidiomics/segmentation/train.sh](thyroidiomics/segmentation/train.sh)):
     ```
-    cd igcondapet
-    torchrun --standalone --nproc_per_node=1 trainddp.py --experiment='exp0' --attn-layer1=False --attn-layer2=True --attn-layer3=True --epochs=400 --batch-size=32 --num-workers=4 --cache-rate=1.0 --val-interval=10
+    cd thyroidiomics
+    CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 train.py --network-name='unet1' --leave-one-center-out='A' --epochs=300 --input-patch-size=64 --inference-patch-size=128 --train-bs=32 --num_workers=4 --lr=2e-4 --wd=1e-5 --val-interval=2 --sw-bs=4 --cache-rate=1
+
     ```
-    Use a unique `--experiment` flag everytime you run a new training. Set `--nproc_per_node` as the number of GPU nodes available for parallel training. The data is cached using MONAI's `CacheDataset`, so if you are running out of memory, consider lowering the value of `cache_rate`. During training, the training and validation losses are saved under `./results/logs/trainlog_gpu{rank}.csv` and `./results/logs/validlog_gpu{rank}.csv` where `{rank}` is the GPU rank and updated every epoch. The checkpoints are saved every `val_interval` epochs under `./results/models/checkpoint_ep{epoch_number}.pth`.
--->
-- **Run evaluation on test set:** 
-<!--After the training is finished (for a given `--experiment`), [igcondapet/inference.py](igcondapet/inference.py) can be used to run evaluation on the unhealthy 2D test dataset and save the results. To run test evaluation, do the following (an example bash script is given in [igcondapet/inference.py](igcondapet/inference.py)):
+    A unique experimentID will be created using the `network_name` and `leave_one_center_out`. For example, if you used `unet1` and choose leave-one-center-out (loco) center as `A` for testing, this experiment will be referenced as `unet1_locoA` under the results folders. Set `--nproc_per_node` as the number of GPU nodes available for parallel training. The data is cached using MONAI's `CacheDataset`, so if you are running out of memory, consider lowering the value of `cache_rate`. During training, the training loss and validation DSC are saved under `THYROIDIOMICS_FOLDER/segmentation_results/logs/trainlog_gpu{rank}.csv` and `THYROIDIOMICS_FOLDER/segmentation_results/logs/validlog_gpu{rank}.csv` where `{rank}` is the GPU rank and updated every epoch. The checkpoints are saved every `val_interval` epochs under `THYROIDIOMICS_FOLDER/segmentation_results/models/model_ep{epoch_number}.pth`. There are many networks defined under the `get_model()` method in the file [thyroidiomics/segmentation/initialize_train.py](thyroidiomics/segmentation/initialize_train.py), but in this work, we used the network `unet1` as that had the best performance. 
+
+- **Run evaluation on test set.** After the training is finished (for a given experimentID), [thyroidiomics/segmentation/predict.py](thyroidiomics/segmentation/predict.py) can be used to run evaluation on the test set (which consists of all the data left out in LOCOCV scheme, here with `CenterID=A` from the above example) save the results. To run test evaluation, do the following (an example bash script is given in [igcondapet/inference.py](igcondapet/inference.py)):
     ```
     cd igcondapet
     python inference.py --experiment='exp0' --attn-layer1=False --attn-layer2=True --attn-layer3=True --guidance-scale=3.0 --noise-level=400 --num-workers=4 --cache-rate=1.0 --val-interval=10
     ```
-    [igcondapet/inference.py](igcondapet/inference.py) uses the model with the lowest loss on the validation set for test evaluation. CAUTION: set `--val-interval` to the same value that was used during training.
+    [igcondapet/inference.py](igcondapet/inference.py) uses the model with the highest DSC on the validation set for test evaluation. CAUTION: set `--val-interval` to the same value that was used during training.
 -->
 
 # References
