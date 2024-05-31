@@ -72,8 +72,8 @@ Follow the intructions given below to set up the necessary conda environment, in
             │  │   ├── Patient0001.nii.gz
             │  │   ├── Patient0002.nii.gz 
             │  │   ├── ...
-            ├──classification_results
-            └──segmentation_results
+            ├──segmentation_results
+            └──classification_results
         
 
     Next, create a file named `datainfo.csv` containing information about `PatientID` (corresponding to image filenames), `CenterID` and `Class` as shown below. For this work, we had 3 classes corresponding to 3 thyroid pathologies: MNG (label=0), TH (label=1) and DG (label=2).
