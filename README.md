@@ -91,7 +91,6 @@ Follow the intructions given below to set up the necessary conda environment, in
     ```
     cd thyroidiomics/segmentation
     CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 train.py --network-name='unet1' --leave-one-center-out='A' --epochs=300 --input-patch-size=64 --inference-patch-size=128 --train-bs=32 --num_workers=4 --lr=2e-4 --wd=1e-5 --val-interval=2 --sw-bs=4 --cache-rate=1
-
     ```
     A unique experimentID will be created using the `network_name` and `leave_one_center_out`. For example, if you used `unet1` and choose leave-one-center-out (loco) center as `A` for testing, this experiment will be referenced as `unet1_locoA` under the results folders. Set `--nproc_per_node` as the number of GPU nodes available for parallel training. The data is cached using MONAI's `CacheDataset`, so if you are running out of memory, consider lowering the value of `cache_rate`. During training, the training loss and validation DSC are saved under `THYROIDIOMICS_FOLDER/segmentation_results/logs/trainlog_gpu{rank}.csv` and `THYROIDIOMICS_FOLDER/segmentation_results/logs/validlog_gpu{rank}.csv` where `{rank}` is the GPU rank and updated every epoch. The checkpoints are saved every `val_interval` epochs under `THYROIDIOMICS_FOLDER/segmentation_results/models/model_ep{epoch_number}.pth`. There are many networks defined under the `get_model()` method in the file [./segmentation/initialize_train.py](./segmentation/initialize_train.py), but in this work, we used the network `unet1` as that had the best performance. 
 
@@ -108,7 +107,8 @@ Follow the intructions given below to set up the necessary conda environment, in
     python classification.py --network-name='unet1' --leave-one-center-out='A'
     ```
 
-- **Saved results from segmenation and classification.** 
+- **Saved results from segmenation and classification.** The segmentation training logs, trained models, predictions, testmetrics and segmentation visualization are stored under folders `logs`, `models`, `predictions`, `testmetrics` and `visualization` created under the location `THYROIDIOMICS_FOLDER/segmentation_results` referenced by their unique experimentIDs. For the classification step, the extracted features and predicted metrics are stored under the folders `feature_extraction` and `prediction_and_metrics` created under the location `THYROIDIOMICS_FOLDER/classification_results` again referenced by the same experimentIDs as the previous step. 
+
 # References
 
 <a id="1">[1]</a> 
