@@ -13,7 +13,16 @@ from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_prec
 from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import GridSearchCV
 from xgboost import XGBClassifier
-
+import argparse
+import sys
+config_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path.append(config_dir)
+from config import (
+    CLASSIFICATION_RESULTS_FOLDER, 
+    SEGMENTATION_RESULTS_FOLDER, 
+    DATA_FOLDER,
+    WORKING_FOLDER
+)
 # %%
 class RadiomicsFeatureExtractor:
     def __init__(self, params):
@@ -22,31 +31,15 @@ class RadiomicsFeatureExtractor:
         """
         self.extractor = featureextractor.RadiomicsFeatureExtractor(**params)
 
-    def get_sorted_nii_files(self, directory):
-        """
-        Get a sorted list of nii.gz files with full paths from a directory.
-        """
-        files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.nii.gz')]
-        files.sort()
-        return files
-
-    def extract_features(self, path_images, path_labels, output_excel_file):
+    def extract_features(self, stpaths, gtpaths, classes, centers, output_excel_file):
         """
         Extract radiomics features from given paths for images and labels.
         """
-        # Get the sorted lists of files
-        sorted_images = self.get_sorted_nii_files(path_images)
-        sorted_segmentations = self.get_sorted_nii_files(path_labels)
-
-        # # Take only the first 10 samples as TEST
-        # sorted_images = sorted_images[:10]
-        # sorted_segmentations = sorted_segmentations[:10]
-
         sample_names = []
         feature_data = []
 
         # Process each image-label pair
-        for image_path, label_path in zip(sorted_images, sorted_segmentations):
+        for image_path, label_path in zip(stpaths, gtpaths):
             try:
                 label_image = sitk.ReadImage(label_path)
                 image = sitk.ReadImage(image_path)
@@ -59,16 +52,17 @@ class RadiomicsFeatureExtractor:
                 print(f"Error processing {image_path} or {label_path}: {e}")
 
         # Create and save the DataFrame
-        if feature_data:
-            df = pd.DataFrame(feature_data)
-            df.insert(0, 'PatientID', sample_names)
-            # Ensure the output directory exists
-            os.makedirs(os.path.dirname(output_excel_file), exist_ok=True)
-            df.to_excel(output_excel_file, index=False)
-            print("Radiomics features saved to", output_excel_file)
-        else:
-            print("No features extracted, output file not created.")
-
+        # if feature_data:
+        df = pd.DataFrame(feature_data)
+        df.insert(0, 'PatientID', sample_names)
+        df.insert(1, 'CenterID', centers)
+        df.insert(2, 'Class', classes)
+        # Ensure the output directory exists
+        # os.makedirs(os.path.dirname(output_excel_file), exist_ok=True)
+        df.to_excel(output_excel_file, index=False)
+        print("Radiomics features saved to", output_excel_file)
+        
+#%%
 class DataProcessor:
     def __init__(self, threshold=0.90):
         self.scaler = StandardScaler()
@@ -310,58 +304,17 @@ class MultiModelClassifier:
 
         return accuracy_score_test, classification_report_test, conf_matrix_test
 
-def group_data_by_centers(excel_file_path, csv_file_path, name='data_'):
-    # Load the datasets
-    df = pd.read_excel(excel_file_path)
-    classes = pd.read_csv(csv_file_path)
-
-    # Get the names of the first columns in both DataFrames
-    first_col_excel = df.columns[0]
-    first_col_csv = classes.columns[0]
-
-    # Initialize an empty list to store the class values
-    class_values = []
-
-    # Iterate over each row in the Excel DataFrame
-    for index, row in df.iterrows():
-        # Get the value from the first column
-        patient_id = row[first_col_excel]
-        
-        # Check if this patient_id exists in the CSV DataFrame
-        if patient_id in classes[first_col_csv].values:
-            # Get the corresponding class value
-            class_value = classes[classes[first_col_csv] == patient_id]['Class'].values[0]
-        else:
-            # If not found, set class_value to None or some default value
-            class_value = None
-        
-        # Append the class value to the list
-        class_values.append(class_value)
-
-    # Insert the class values as a new column in the Excel DataFrame
-    df.insert(loc=1, column='Class', value=class_values)
-
-    # Initialize an empty dictionary to store the variables
+def group_data_by_centers(excel_file_path):
+    # # Load the datasets
+    df_features = pd.read_excel(excel_file_path, engine='openpyxl')
+    centerids = np.unique(df_features['CenterID'].tolist())
     grouped_data = {}
 
-    # Iterate through the rows of the DataFrame
-    for index, row in df.iterrows():
-        # Get the starting letter of the patientID
-        starting_letter = row.iloc[0][0]
-
-        # Check if the starting letter is already a key in the dictionary
-        if starting_letter not in grouped_data:
-            # If not, create a new DataFrame for this starting letter
-            grouped_data[starting_letter] = pd.DataFrame(columns=df.columns)
-
-        # Append the row to the appropriate DataFrame
-        grouped_data[starting_letter] = pd.concat([grouped_data[starting_letter], row.to_frame().T], ignore_index=True)
-
-    # Convert dictionary keys to variables
-    for key, value in grouped_data.items():
-        globals()[f'{name}{key}'] = value
-
-    # Optional: return the dictionary of DataFrames for further use
+    for center in centerids:
+        df_center = df_features[df_features['CenterID'] == center]
+        df_center.reset_index(inplace=True, drop=True)
+        grouped_data[center] = df_center
+   
     return grouped_data
 
 def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, results_path):
@@ -377,11 +330,11 @@ def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, 
     # Find the index of the starting column
     start_index = train_set.columns.get_loc(start_column_name)
     X_train = train_set.iloc[:, start_index:]  
-    y_train = train_set.iloc[:, 1:2]
+    y_train = train_set.iloc[:, 2:3]
     X_test = test_set.iloc[:, start_index:]
-    y_test = test_set.iloc[:, 1:2]
+    y_test = test_set.iloc[:, 2:3]
     X_test_predicted = test_set_predicted.iloc[:, start_index:]
-    y_test_predicted = test_set_predicted.iloc[:, 1:2]
+    y_test_predicted = test_set_predicted.iloc[:, 2:3]
 
     print(f"Center: {center_key}")
     print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
@@ -409,7 +362,7 @@ def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, 
     # Save selected features and their scores in the dictionary
     selected_features_scores[center_key] = dict(zip(selected_features_rfe, feature_scores_rfe))
 
-    directory_path = f'{results_path}/01_Real/{center_key}/'
+    directory_path = f'{results_path}/real_segs/'
     if not os.path.exists(directory_path):
         os.makedirs(directory_path)
 
@@ -432,7 +385,7 @@ def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, 
             file.write("-" * 80 + "\n")
     print("All model evaluations have been saved to 'classification_reports.txt'.")
 
-    directory_path1 = f'{results_path}/02_Predicted/{center_key}/'
+    directory_path1 = f'{results_path}/predicted_segs/'
     if not os.path.exists(directory_path1):
         os.makedirs(directory_path1)
 
@@ -464,40 +417,92 @@ def one_center_out_cross_validation(center_key, data_dict, data_dict_Predicted, 
     return
 
 #%%
-# Usage of the pipeline 
-# How to use the function extract_radiomics_features
-output_csv_file = "/home/jhubadmin/Desktop/PipelineTest/results/radiomics/TEST.xlsx"
-output_csv_file_predicted = "/home/jhubadmin/Desktop/PipelineTest/results/radiomics/TEST_UNet.xlsx"   
-path_labels_predicted = "/home/jhubadmin/Desktop/PipelineTest/predictedLabels"
-path_labels = "/home/jhubadmin/Desktop/PipelineTest/labels"
-path_images = "/home/jhubadmin/Desktop/PipelineTest/images"
+def main(args):
+    # Usage of the pipeline 
+    # How to use the function extract_radiomics_features
 
-# Define the feature extractor parameters
-params = {
-    "binWidth": 0.1,                  # 0.1, 0.3, 0.5, 0.7, 1.0
-    "resampledPixelSpacing": (1, 1),  # Resampling
-    "interpolator": sitk.sitkBSpline,  # Correct the interpolator setting
-    "force2D": True,                 # Force the extractor to treat the images as 2D
-    "normalize": True,               # Normalize the image before calculation
-    # Add more parameters as needed
-}
+    experiment_code = f'{args.network_name}_loco{args.leave_one_center_out}'
+    feature_extraction_dir = os.path.join(CLASSIFICATION_RESULTS_FOLDER, 'feature_extraction')
+    os.makedirs(feature_extraction_dir, exist_ok=True) 
+    physiciansegs_feature_extraction_fpath = os.path.join(feature_extraction_dir, 'physician_segmentation_radiomics.xlsx')
 
-# Create an instance of the extractor
-feature_extractor = RadiomicsFeatureExtractor(params)
 
-# Execute feature extraction
-feature_extractor.extract_features(path_images, path_labels, output_csv_file)
-feature_extractor.extract_features(path_images, path_labels_predicted, output_csv_file_predicted)
+    predictedsegs_feature_extraction_dir = os.path.join(CLASSIFICATION_RESULTS_FOLDER, 'feature_extraction', experiment_code)
+    os.makedirs(predictedsegs_feature_extraction_dir, exist_ok=True)
+    predictedsegs_feature_extraction_fpath = os.path.join(predictedsegs_feature_extraction_dir, 'predicted_segmentation_radiomics.xlsx')
+    
+    datapath = os.path.join(WORKING_FOLDER, 'data_analysis', 'datainfo.csv')
+    data = pd.read_csv(datapath)
+    trainvalid_df = data[data['CenterID'] != args.leave_one_center_out]
+    test_df = data[data['CenterID'] == args.leave_one_center_out]
+    trainvalid_df.reset_index(inplace=True, drop=True)
+    test_df.reset_index(inplace=True, drop=True)
+    
+    trainvalid_ids, test_ids = trainvalid_df['PatientID'].tolist(), test_df['PatientID'].tolist()
+    trainvalid_classes, test_classes = trainvalid_df['Class'].tolist(), test_df['Class'].tolist()
+    trainvalid_centers, test_centers = trainvalid_df['CenterID'].tolist(), test_df['CenterID'].tolist()
 
+    stpaths_trainvalid = [os.path.join(DATA_FOLDER, 'images', f'{id}.nii.gz') for id in trainvalid_ids]
+    gtpaths_trainvalid = [os.path.join(DATA_FOLDER, 'labels', f'{id}.nii.gz') for id in trainvalid_ids]
+
+    stpaths_test = [os.path.join(DATA_FOLDER, 'images', f'{id}.nii.gz') for id in test_ids]
+    gtpaths_test = [os.path.join(DATA_FOLDER, 'labels', f'{id}.nii.gz') for id in test_ids]
+
+    predicted_labels_dir = os.path.join(SEGMENTATION_RESULTS_FOLDER, 'predictions', experiment_code)
+    prpaths_test = [os.path.join(predicted_labels_dir, f'{id}.nii.gz') for id in test_ids]
+
+    # Define the feature extractor parameters
+    params = {
+        "binWidth": 0.1,                 # 0.1
+        "resampledPixelSpacing": (1, 1), # Resampling
+        "interpolator": sitk.sitkBSpline,# Correct the interpolator setting
+        "force2D": True,                 # Force the extractor to treat the images as 2D
+        "normalize": True,               # Normalize the image before calculation
+    }
+
+    # Create an instance of the extractor
+    feature_extractor = RadiomicsFeatureExtractor(params)
+
+    # # Execute feature extraction
+    # # physician's features should be extracted only once
+    if os.path.exists(physiciansegs_feature_extraction_fpath) == False: 
+        feature_extractor.extract_features(
+            stpaths_trainvalid+stpaths_test, 
+            gtpaths_trainvalid+gtpaths_test, 
+            trainvalid_classes+test_classes, 
+            trainvalid_centers+test_centers, 
+            physiciansegs_feature_extraction_fpath
+        )
+    else:
+        pass
+
+    feature_extractor.extract_features(
+        stpaths_test, 
+        prpaths_test, 
+        test_classes, 
+        test_centers, 
+        predictedsegs_feature_extraction_fpath
+    )
+
+    data_dict = group_data_by_centers(physiciansegs_feature_extraction_fpath) 
+    data_dict_predicted = group_data_by_centers(predictedsegs_feature_extraction_fpath) 
+
+    save_results_dir = os.path.join(CLASSIFICATION_RESULTS_FOLDER, 'predictions_and_metrics')
+    os.makedirs(save_results_dir, exist_ok=True)
+    save_results_dir = os.path.join(save_results_dir, experiment_code)
+    os.makedirs(save_results_dir, exist_ok=True)
+
+    one_center_out_cross_validation(args.leave_one_center_out, data_dict, data_dict_predicted, save_results_dir)
 # %%
-csv_file_path = "/home/jhubadmin/Desktop/thyroidiomics/segmentation/datainfo_images_to_use.csv"
-# Usage of the pipeline
-data_dict = group_data_by_centers(output_csv_file, csv_file_path, 'data_') # print(grouped_data['A'])  # Example: print the DataFrame for starting letter 'A'
-data_dict_Predicted = group_data_by_centers(output_csv_file_predicted, csv_file_path, "Predicted_") 
-
-# %%
-results_path = "/home/jhubadmin/Desktop/PipelineTest/results"
-one_center_out_cross_validation("A", data_dict, data_dict_Predicted, results_path)
-
-
+if __name__ == "__main__": 
+    # create datasplit files for train and test images
+    # follow all the instructions for dataset directory creation and images/labels file names as given in: LINK
+    parser = argparse.ArgumentParser(description='Thyroid pathology classification in scintigraphy images')
+    parser.add_argument('--network-name', type=str, default='unet', metavar='netname',
+                        help='network name for training (default: unet)') 
+    parser.add_argument('--leave-one-center-out', type=str, default='A', metavar='center',
+                        help='leave a center out for testing (default: A)')
+    args = parser.parse_args()
+    
+    main(args)
 # %%

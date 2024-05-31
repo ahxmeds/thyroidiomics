@@ -1,0 +1,1 @@
+python classification.py --network-name='unet1' --leave-one-center-out='B'
