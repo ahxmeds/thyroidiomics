@@ -98,6 +98,13 @@ Follow the intructions given below to set up the necessary conda environment, in
     ```
     [./segmentation/predict.py](./segmentation/predict.py) uses the model with the highest DSC on the validation set for test evaluation. CAUTION: set `--val-interval` to the same value that was used during training.
 
+- **Run classification training and evaluation.** In this step, we will use [./classification/classification.py](./classification/classification.py) file to train a classfication model, and perform testing in two ways. The training will run on all the centers except the one defined by `--leave-one-center-out`, while testing will be performed only on the center defined by `--leave-one-center-out`. In scenario 1 of testing, we extract features from the test images using the physician's thyroid annotation, while in scenario 2, we extract them from the segmentation model's predicted annotations (see Fig. 1 above). To run classification training and evaluation, do the following (an example bash script is given in [./classification/classification_train_and_predict.sh](./classification/classification_train_and_predict.sh)). Remember, these experiments are also referenced using the same experimentID as for the segmentation step and the results are save accordingly.
+    ```
+    cd thyroidiomics/classification
+    python classification.py --network-name='unet1' --leave-one-center-out='A'
+    ```
+
+- **Saved results from segmenation and classification.** 
 # References
 
 <a id="1">[1]</a> 
