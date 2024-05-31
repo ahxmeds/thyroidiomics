@@ -39,8 +39,9 @@ The objective of this study was to develop an automated pipeline that enhances t
 
 
 ## How to get started?
+<p align="justify">
 Follow the intructions given below to set up the necessary conda environment, install packages, preprocess dataset in the correct format so it can be accepted as inputs by the code, train model and perform anomaly detection on test set using the trained models. 
-
+</p>
 - **Clone the repository, create conda environment and install necessary packages.** The first step is to clone this GitHub codebase in your local machine, create a conda environment, and install all the necessary packages. This code base was developed primarily using python=3.9.19, PyTorch=1.11.0, monai=1.3.1 and CUDA 11.4 on a Microsoft Azure virtual machine with Ubuntu 20.04, so the codebase has been tested only with these configurations. The virtual machine had one GPU with 16 GiB of RAM and 6 vCPUs with 112 GB of RAM. We hope this codebase will run in other suitable combinations of different versions of python, PyTorch, monai, and CUDA, but we cannot guarantee that. Proceed with caution and feel free to modify wherever necessary!
 
     ```
