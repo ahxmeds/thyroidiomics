@@ -109,3 +109,4 @@ Follow the intructions given below to set up the necessary conda environment, in
 Ahamed, S., et al., "Comprehensive Evaluation and Insights into the Use of Deep Neural Networks to Detect and Quantify Lymphoma Lesions in PET/CT Images", arXiv:2311.09614 (2023). 
 
 <a id="2">[2]</a> 
+Sabouri, M., et al., "Myocardial Perfusion SPECT Imaging Radiomic Features and Machine Learning Algorithms for Cardiac Contractile Pattern Recognition", Journal of Digital Imaging, v36, p497-509 (2022). 
